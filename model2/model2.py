@@ -4,13 +4,18 @@ import numpy as np
 
 import data
 
-dictionary, reverse_dictionary = data.dataset()
+# Text file containing words for training
+training_file = 'belling_the_cat.txt'
+
+training_data = data.read_data(training_file)
+dictionary, reverse_dictionary = data.build_dataset(training_data)
 vocab_size = len(dictionary)
 
 # Parameters
 learning_rate = 0.001
 training_iters = 50000
-display_step = 1000
+#training_iters = 5000
+display_iters = 1000
 n_input = 3
 
 # number of units in RNN cell
@@ -42,16 +47,50 @@ def model(x):
 
 # tf Graph input
 x = tf.placeholder("float", [1, n_input])
-#y = tf.placeholder("float", [None, vocab_size])
+y = tf.placeholder("float", [1, vocab_size])
 
 pred = model(x)
 
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate).minimize(cost)
+
+# Model evaluation
+correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(y,1))
+accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+
 init = tf.global_variables_initializer()
 
+total_loss = 0
+total_acc = 0
 
 with tf.Session() as sess:
     sess.run(init)
 
+
+    # Training
+
+    print("Training")
+    training_datapoints = len(training_data) // n_input
+    if len(training_data) % n_input == 0:
+        training_datapoints = training_datapoints - 1
+    for step in range(training_iters):
+        offset = (step % training_datapoints) * n_input
+        symbols_in_keys = [dictionary[str(training_data[i])] for i in range(offset, offset+n_input) ]
+        labels_onehot = np.zeros([vocab_size], dtype=float)
+        labels_onehot[dictionary[str(training_data[offset+n_input])]] = 1.0
+        _, acc, loss, onehot_pred = sess.run([optimizer, accuracy, cost, pred],
+                                                feed_dict={x: [symbols_in_keys], y: [labels_onehot]})
+        total_acc += acc
+        total_loss += loss
+        if (step+1) % display_iters == 0:
+            print("After %d steps" % (step+1))
+            print("\tavg acc = %f" % (total_acc/display_iters))
+            print("\tavg loss = %f" % (total_loss/display_iters))
+            total_acc = 0
+            total_loss = 0
+        
+    # Inference Demo
+    
     input_sentence = "if i will"
     sentence = input_sentence
     input_words = input_sentence.split()
