@@ -48,12 +48,19 @@ pred = model(x)
 
 init = tf.global_variables_initializer()
 
+
 with tf.Session() as sess:
     sess.run(init)
-    output = sess.run(pred, feed_dict={x: [[1, 2, 3]]})
 
-print("Vocab Size = %d" % vocab_size)
-    
-print(output)
-    
-#import pdb; pdb.set_trace()
+    input_sentence = "if i will"
+    sentence = input_sentence
+    input_words = input_sentence.split()
+    output_len = 32
+    symbols_in_keys = [dictionary[str(input_words[i])] for i in range(len(input_words))]
+    for i in range(output_len):
+        onehot_pred = sess.run(pred, feed_dict={x: [symbols_in_keys]})
+        onehot_pred_index = int(tf.argmax(onehot_pred, 1).eval())
+        sentence = "%s %s" % (sentence,reverse_dictionary[onehot_pred_index])
+        symbols_in_keys = symbols_in_keys[1:]
+        symbols_in_keys.append(onehot_pred_index)
+    print(sentence)
